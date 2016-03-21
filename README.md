@@ -251,3 +251,29 @@ WARNING: login credentials saved in /home/joes/.docker/config.json
 Login Succeeded
 ```
 其中`/.docker/config.json`里面记录了Login信息
+
+比如基于ubuntu镜像创建了一个容器，并且安装了nodejs程序，如果想保存此镜像到本地（重启机器后依然存在），此时需要使用`docker commit`操作。和`git`很类似，它也是只记录了差异部分，所以很轻量。
+```
+sudo docker commit 301329d20566 cnio/node 
+```
+此时使用`docker images`查看镜像就会找到我们提交的`cnio/node`镜像了。
+
+当然提交时也可以添加其他的信息选项
+
+```
+sudo docker commit -m="a newer image" --author="cnio" 301329d20566 cnio/node 
+```
+
+### 用Dockerfile构建镜像
+
+### 用Dockerfile构建镜像
+
+大体流程：
+- Docker从基础镜像运行一个容器。
+- 执行一条指令，对容器进行修改。
+- 执行类似docker commit的操作，提交一个新的镜像层。
+- Docker再基于刚提交的镜像运行一个新容器。
+- 执行Dockerfile中的下一条指令，直到所有的指令都执行完毕。
+
+
+
