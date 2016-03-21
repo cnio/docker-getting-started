@@ -266,8 +266,6 @@ sudo docker commit -m="a newer image" --author="cnio" 301329d20566 cnio/node
 
 ### 用Dockerfile构建镜像
 
-### 用Dockerfile构建镜像
-
 大体流程：
 - Docker从基础镜像运行一个容器。
 - 执行一条指令，对容器进行修改。
@@ -275,5 +273,103 @@ sudo docker commit -m="a newer image" --author="cnio" 301329d20566 cnio/node
 - Docker再基于刚提交的镜像运行一个新容器。
 - 执行Dockerfile中的下一条指令，直到所有的指令都执行完毕。
 
+比如一个简单示例
+```
+# Version: 0.0.1
+FROM ubuntu:latest
+MAINTAINER cnio "it@wem.me" 
+RUN apt-get update
+RUN apt-get install -y nginx
+RUN echo "hi,Im in your container">/usr/share/nginx/html/index.html
+EXPOSE 80
+```
+参数解释
 
+`FROM`: 首先从一个基础镜像（base image）开始，后续的指令都将基于该镜像进行。
+`MAINTAINER`: 该镜像的作者是谁以及作者的电子邮箱地址。
+`RUN`: 执行操作,它默认情况会在shell里使用指令包装器`/bin/sh -c`来执行。如果不支持shell,也可以使用exec格式的RUN指令。
+```
+RUN [ "apt-get", " install", "-y", "nginx" ]
+```
+`EXPOSE`: 这条指令告诉Docker该容器内的应用程序将会使用容器的指定端口。可以指定多个EXPOSE指令来向外部公开多个端口。
+
+
+#### 基于Dockerfile 构建新镜像
+```
+sudo docker build -t="cnio/nginx_web" .
+```
+注意最后面的` . `告诉Docker到本地去找Dockerfile 文件。
+
+Dockerfile缓存
+由于每一步的构建过程都会将结果提交为镜像，如果构建过程中某一步骤失败，排除错误后，再次执行时并不会从第一步开始（除非第一步就错了），因为之前构建时创建的镜像当做缓存并作为新的开始点。
+
+`--no-cache`参数
+但是如果想从第一步开始，比如之前有个`apt-get update`指令，我就想重新跑一遍。满足你..
+```
+sudo docker build --no-cache -t="cnio/nginx_web:v1"
+```
+`v1`为版本号，在默认情况下不加的情况下则为`latest`。
+
+#### 查看新镜像
+```
+sudo docker images cnio/nginx_web
+```
+探究镜像是如何构建出来的
+```
+sudo docker history ID
+```
+注意这里一定是镜像的ID。
+```
+➜  ~  sudo docker history 0a055e218843  
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+0a055e218843        About an hour ago   /bin/sh -c #(nop) EXPOSE 80/tcp                 0 B                 
+f74caa742367        About an hour ago   /bin/sh -c echo "hi,Im in your container">/us   24 B                
+0d0820526315        About an hour ago   /bin/sh -c apt-get install -y nginx             18.13 MB            
+a4f4fa0c0ce6        About an hour ago   /bin/sh -c apt-get update                       933 B               
+a28f2bb11fe1        About an hour ago   /bin/sh -c #(nop) MAINTAINER cnio "it@wem.me"   0 B                 
+89d5d8e8bafb        3 months ago        /bin/sh -c #(nop) CMD ["/bin/bash"]             0 B                 
+e24428725dd6        3 months ago        /bin/sh -c sed -i 's/^#\s*\(deb.*universe\)$/   1.895 kB            
+1796d1c62d0c        3 months ago        /bin/sh -c echo '#!/bin/sh' > /usr/sbin/polic   194.5 kB            
+0bf056161913        3 months ago        /bin/sh -c #(nop) Astrong textDD file:9b5ba3935021955492   187.7 MB       
+```
+
+#### 从新镜像启动容器
+
+```
+➜  ~  sudo docker run -d -p 80 --name nginx_web cnio/nginx_web:v1 nginx -g "daemon off;"
+d47bf16e8f9bd53a4137db9a6bb471409150315c10d9ae4a5c3942bae6de8615
+```
+
+端口映射
+```
+➜  ~  sudo docker ps -l
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                   NAMES
+d47bf16e8f9b        cnio/nginx_web:v1   "nginx -g 'daemon off"   4 minutes ago       Up 4 minutes        0.0.0.0:32768->80/tcp   nginx_web
+```
+此刻，`nginx`服务已经启动，访问浏览器[http://127.0.0.1:32768]()即可访问我们之前创建的网页内容。也可以
+```
+➜  ~  curl localhost:32768
+hi,Im in your container
+```
+查看端口
+```
+sudo docker port d47bf16e8f9b
+```
+注意｀d47bf16e8f9b｀为`容器的ID`
+```
+➜  ~  sudo docker port  d47bf16e8f9b 80
+0.0.0.0:32768
+```
+
+### 将镜像推送到Docker Hub
+```
+sudo docker push cnio/nginx_web
+```
+```
+➜  ~  sudo docker push cnio/nginx_web
+The push refers to a repository [docker.io/cnio/nginx_web] (len: 1)
+0a055e218843: Pushed 
+f74caa742367: Pushed 
+0d0820526315: Pushing [==============================>                    ] 11.19 MB/18.13 MB
+```
 
